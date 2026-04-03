@@ -54,6 +54,11 @@
           <input type="text" id="regNumber" placeholder="e.g. 20CS140" style="margin-top:4px;" />
         </div>
 
+        <div class="form-group" style="margin-bottom:0.75rem;">
+          <label for="tagNumber" style="font-size:0.78rem;">Tag Number</label>
+          <input type="number" id="tagNumber" placeholder="Enter tag on your bag" style="margin-top:4px;" />
+        </div>
+
         <div id="scheduleCheck" style="font-size:0.8rem;color:var(--gray-400);margin-bottom:0.75rem;"></div>
 
         <button class="btn btn-primary" id="submitBtn" onclick="submitLaundry()" style="width:100%;justify-content:center;">
@@ -246,6 +251,7 @@
   // ── Submit Laundry ──
   window.submitLaundry = async function () {
     const regNumber = document.getElementById('regNumber').value.trim().toUpperCase();
+    const tagNumber = document.getElementById('tagNumber').value.trim();
     const btn       = document.getElementById('submitBtn');
     const alertBox  = document.getElementById('submitAlert');
 
@@ -255,8 +261,9 @@
       alertBox.style.display = 'flex';
     }
 
-    if (!regNumber) {
-      showAlert('❌ Please enter your registration number.', 'error'); return;
+    if (!regNumber || !tagNumber) {
+      showAlert('Please enter registration number and tag number.', 'error');
+      return;
     }
 
     // Check schedule eligibility
@@ -266,14 +273,19 @@
       showAlert(`⚠️ ${check.message}`, 'warning');
       return;
     }
-
+    // 🔥 ADD HERE
+    if (isNaN(tagNumber) || tagNumber <= 0) {
+      showAlert('Invalid tag number.', 'error');
+      return;
+    }
     btn.disabled = true;
     btn.textContent = 'Submitting…';
 
     try {
-      const result = await addLaundry(regNumber, currentUser.email);
+      const result = await addLaundry(regNumber, currentUser.email, tagNumber);
       showAlert(`✅ Submitted! Your tag number is <strong>#${result.tagNumber}</strong>. Track below.`, 'success');
       document.getElementById('regNumber').value = '';
+      document.getElementById('tagNumber').value = '';
       await loadEntries();
     } catch (err) {
       showAlert(`❌ Submission failed: ${err.message}`, 'error');
