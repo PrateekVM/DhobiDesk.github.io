@@ -184,33 +184,35 @@ async function assignShelfNumber(docId, shelfNumber) {
  * isSubmissionAllowed() — Checks if a student is allowed to submit today
  * based on the weekly schedule
  */
-function isSubmissionAllowed(registrationNumber) {
-  const schedule = {
-    1: { rooms: [101, 140], label: "Monday" },
-    2: { rooms: [201, 240], label: "Tuesday" },
-    3: { rooms: [301, 340], label: "Wednesday" },
-    4: { rooms: [401, 440], label: "Thursday" },
-    5: { rooms: [501, 540], label: "Friday" },
-    6: { rooms: [601, 640], label: "Saturday" },
-    0: { rooms: [701, 740], label: "Sunday" }
-  };
+async function isSubmissionAllowed(registrationNumber) {
+  const roomNumber = await getRoomNumber(registrationNumber);
 
-  const today = new Date().getDay(); // 0=Sun, 1=Mon...
-  const todaySchedule = schedule[today];
-  if (!todaySchedule) return { allowed: false, reason: "No schedule today." };
-
-  // Extract room number from registration number (last 3 digits assumed as room)
-  const roomNum = parseInt(registrationNumber.slice(-3));
-  if (isNaN(roomNum)) return { allowed: false, reason: "Invalid registration number." };
-
-  const [min, max] = todaySchedule.rooms;
-  if (roomNum >= min && roomNum <= max) {
-    return { allowed: true };
+  if (!roomNumber) {
+    return { allowed: false, message: "Registration number not found. Contact admin." };
   }
 
+  const schedule = {
+    1: [101, 140],
+    2: [201, 240],
+    3: [301, 340],
+    4: [401, 440],
+    5: [501, 540],
+    6: [601, 640],
+    0: [701, 740]
+  };
+
+  const today = new Date().getDay();
+  const range = schedule[today];
+
+  if (!range) return { allowed: false, message: "Invalid schedule" };
+
+  const allowed = roomNumber >= range[0] && roomNumber <= range[1];
+
   return {
-    allowed: false,
-    reason: `Today (${todaySchedule.label}) is for rooms ${min}–${max}. Your room is not scheduled today.`
+    allowed,
+    message: allowed
+      ? "Allowed to submit today"
+      : `Not your day. Your room (${roomNumber}) is scheduled on another day`
   };
 }
 
@@ -228,5 +230,25 @@ export {
   updateStatus,
   assignShelfNumber,
   isSubmissionAllowed,
-  onAuthStateChanged
+  onAuthStateChanged,
+  addStudentRoom,
+  getRoomNumber
 };
+
+// Map student to room
+async function addStudentRoom(registrationNumber, roomNumber) {
+  await setDoc(doc(db, "studentRooms", registrationNumber), {
+    registrationNumber,
+    roomNumber
+  });
+}
+
+// Get room from registration number
+async function getRoomNumber(registrationNumber) {
+  const docRef = doc(db, "studentRooms", registrationNumber);
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    return docSnap.data().roomNumber;
+  }
+  return null;
+}
