@@ -260,9 +260,11 @@
     }
 
     // Check schedule eligibility
-    const check = isSubmissionAllowed(regNumber);
+    const check = await isSubmissionAllowed(regNumber);
+
     if (!check.allowed) {
-      showAlert(`⚠️ ${check.reason}`, 'warning'); return;
+      showAlert(`⚠️ ${check.message}`, 'warning');
+      return;
     }
 
     btn.disabled = true;
