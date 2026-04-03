@@ -303,7 +303,7 @@
     const check = isSubmissionAllowed(val);
     el.innerHTML = check.allowed
       ? `<span style="color:var(--green);">✅ You can submit today!</span>`
-      : `<span style="color:var(--orange);">⚠️ ${check.reason}</span>`;
+      : `<span style="color:var(--orange);">⚠️ ${check.message}</span>`;
   });
 </script>
 
