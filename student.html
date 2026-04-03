@@ -296,21 +296,25 @@
   };
 
   // ── Live check on registration number input ──
-  document.getElementById('regNumber').addEventListener('input', async function () {
-    const val = this.value.trim().toUpperCase();
-    const el  = document.getElementById('scheduleCheck');
+document.getElementById('regNumber').addEventListener('input', async function () {
+  const val = this.value.trim().toUpperCase();
+  const el  = document.getElementById('scheduleCheck');
 
-    if (!val) {
-      el.textContent = '';
-      return;
-    }
+  if (!val) {
+    el.textContent = '';
+    return;
+  }
 
-    const check = await isSubmissionAllowed(val); // ✅ FIXED
+  try {
+    const check = await isSubmissionAllowed(val); // ✅ FIX
 
     el.innerHTML = check.allowed
       ? `<span style="color:var(--green);">✅ You can submit today!</span>`
       : `<span style="color:var(--orange);">⚠️ ${check.message}</span>`;
-  });
+  } catch (err) {
+    el.innerHTML = '';
+  }
+});
 </script>
 
 </body>
