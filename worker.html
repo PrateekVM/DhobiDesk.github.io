@@ -51,6 +51,22 @@
       <div class="stat-label">Completed</div>
     </div>
   </div>
+  
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-header">
+      <h3>📌 Assign Room to Student</h3>
+    </div>
+    <div class="card-body">
+
+      <input type="text" id="regInput" placeholder="Registration Number" />
+      <input type="number" id="roomInput" placeholder="Room Number" />
+
+      <button onclick="assignRoom()">Assign</button>
+
+      <div id="assignMsg"></div>
+
+    </div>
+  </div>
 
   <!-- Filter Bar -->
   <div class="filter-bar">
@@ -92,9 +108,10 @@
 
 <script type="module">
   import {
-    auth, onAuthStateChanged, logout, checkUserRole,
-    getAllLaundry, updateStatus, assignShelfNumber
-  } from './firebase.js';
+  auth, onAuthStateChanged, logout, checkUserRole,
+  getAllLaundry, updateStatus, assignShelfNumber,
+  addStudentRoom
+} from './firebase.js';
 
   let allEntries = [];
   let unsubscribe = null;
@@ -266,6 +283,27 @@
       alert('Failed to assign shelf: ' + err.message);
     }
   };
+  window.assignRoom = async function () {
+  const reg = document.getElementById('regInput').value.trim();
+  const room = parseInt(document.getElementById('roomInput').value);
+
+  if (!reg || !room) {
+    alert("Enter both registration number and room number");
+    return;
+  }
+
+  try {
+    await addStudentRoom(reg, room);
+    document.getElementById('assignMsg').innerText = "✅ Assigned successfully";
+    
+    // Clear inputs
+    document.getElementById('regInput').value = '';
+    document.getElementById('roomInput').value = '';
+    
+  } catch (err) {
+    document.getElementById('assignMsg').innerText = "❌ Error: " + err.message;
+  }
+};
 </script>
 
 </body>
