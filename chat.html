@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lost & Found Chat — DhobiDesk</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ── Navbar ── -->
+<nav class="navbar">
+  <a class="navbar-brand" href="index.html">
+    <div class="logo-icon">🧺</div>
+    <span>DhobiDesk</span>
+  </a>
+  <ul class="navbar-links">
+    <li><a href="schedule.html">Schedule</a></li>
+    <li><a href="chat.html">💬 Lost & Found</a></li>
+    <li><a href="#" id="dashboardLink">Dashboard</a></li>
+    <li><a href="#" id="logoutBtn">Logout</a></li>
+  </ul>
+</nav>
+
+<!-- ── Page Header ── -->
+<div class="page-header">
+  <div class="main-wrapper" style="padding-top:0;padding-bottom:0;">
+    <div class="header-badge">🔍 Lost & Found</div>
+    <h1>Community Chat</h1>
+    <p>Found an extra item in your bag? Post here — the owner will find you.</p>
+  </div>
+</div>
+
+<!-- ── Main Content ── -->
+<div class="main-wrapper">
+
+  <!-- Info banner -->
+  <div class="info-box" style="margin-bottom:1.25rem;">
+    💡 Use this chat to report items found in your laundry bag that don't belong to you.
+    Be descriptive — mention color, type, and any markings on the clothing.
+  </div>
+
+  <!-- Online indicator -->
+  <div style="display:flex; justify-content:flex-end; margin-bottom:0.75rem;">
+    <span class="online-pill">
+      <span class="online-dot"></span>
+      Live Chat
+    </span>
+  </div>
+
+  <!-- Chat UI -->
+  <div class="chat-wrapper">
+
+    <!-- Messages area -->
+    <div class="chat-box" id="chatBox">
+      <div class="chat-empty" id="chatEmpty">
+        <div class="empty-icon">💬</div>
+        <p>No messages yet. Be the first!</p>
+      </div>
+    </div>
+
+    <!-- Input bar -->
+    <div class="chat-input-bar">
+      <input
+        type="text"
+        id="msgInput"
+        placeholder='e.g. "Found a red Ironman shirt in my bag — tag #42"'
+        maxlength="400"
+        autocomplete="off"
+      />
+      <button class="btn btn-primary" id="sendBtn" onclick="sendMsg()">
+        Send ✈️
+      </button>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- ── Footer ── -->
+<footer class="footer">
+  <p>© 2024 <strong>DhobiDesk</strong> — Smart Laundry Coordination for Hostels</p>
+</footer>
+
+<script type="module">
+  import {
+    auth, onAuthStateChanged, logout,
+    checkUserRole, sendMessage, listenToChat
+  } from './firebase.js';
+
+  let currentUser   = null;
+  let unsubscribe   = null;
+  let lastDateShown = '';
+
+  // ── Auth Guard: only logged-in users can access chat ──
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) { window.location.href = 'login.html'; return; }
+    currentUser = user;
+
+    const role = await checkUserRole(user.uid);
+    document.getElementById('dashboardLink').href =
+      role === 'worker' ? 'worker.html' : 'student.html';
+
+    startChat();
+  });
+
+  // ── Logout ──
+  document.getElementById('logoutBtn').addEventListener('click', async (e) => {
+    e.preventDefault();
+    if (unsubscribe) unsubscribe();
+    await logout();
+    window.location.href = 'index.html';
+  });
+
+  // ── Start real-time chat listener ──
+  function startChat() {
+    unsubscribe = listenToChat((messages) => {
+      const box   = document.getElementById('chatBox');
+      const empty = document.getElementById('chatEmpty');
+
+      if (messages.length === 0) {
+        empty.style.display = 'flex';
+        return;
+      }
+      empty.style.display = 'none';
+
+      // Only re-render if message count changed (avoids flicker)
+      const prevCount = parseInt(box.dataset.count || '0');
+      if (messages.length === prevCount) return;
+      box.dataset.count = messages.length;
+
+      // Check if user is near bottom before re-render (to decide auto-scroll)
+      const isAtBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+
+      // Clear old messages (keep empty-state div)
+      lastDateShown = '';
+      Array.from(box.children).forEach(child => {
+        if (child.id !== 'chatEmpty') child.remove();
+      });
+
+      // Render all messages
+      messages.forEach(msg => {
+        const msgDate = msg.timestamp?.toDate?.()
+          ? msg.timestamp.toDate().toLocaleDateString('en-IN', {
+              day: '2-digit', month: 'short', year: 'numeric'
+            })
+          : '';
+
+        // Show date divider when date changes
+        if (msgDate && msgDate !== lastDateShown) {
+          lastDateShown = msgDate;
+          const divider = document.createElement('div');
+          divider.className = 'chat-date-divider';
+          divider.textContent = msgDate;
+          box.appendChild(divider);
+        }
+
+        const isMine = msg.userEmail === currentUser.email;
+
+        const timeStr = msg.timestamp?.toDate?.()
+          ? msg.timestamp.toDate().toLocaleTimeString('en-IN', {
+              hour: '2-digit', minute: '2-digit'
+            })
+          : '';
+
+        // Show only the part before @ as display name
+        const senderName = msg.userEmail?.split('@')[0] || 'User';
+
+        const el = document.createElement('div');
+        el.className = `chat-message ${isMine ? 'mine' : 'theirs'}`;
+        el.innerHTML = `
+          ${!isMine ? `<div class="chat-sender">${escapeHtml(senderName)}</div>` : ''}
+          <div class="chat-bubble">${escapeHtml(msg.text)}</div>
+          <div class="chat-meta">${timeStr}</div>
+        `;
+        box.appendChild(el);
+      });
+
+      // Auto-scroll to bottom if user was already near bottom
+      if (isAtBottom || prevCount === 0) {
+        box.scrollTop = box.scrollHeight;
+      }
+    });
+  }
+
+  // ── Send a message ──
+  window.sendMsg = async function () {
+    const input = document.getElementById('msgInput');
+    const btn   = document.getElementById('sendBtn');
+    const text  = input.value.trim();
+
+    if (!text || !currentUser) return;
+
+    input.value  = '';
+    btn.disabled = true;
+
+    try {
+      await sendMessage(text, currentUser.email);
+    } catch (err) {
+      alert('Failed to send message: ' + err.message);
+      input.value = text; // restore text if send failed
+    } finally {
+      btn.disabled = false;
+      input.focus();
+    }
+  };
+
+  // ── Send on Enter key ──
+  document.getElementById('msgInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      window.sendMsg();
+    }
+  });
+
+  // ── Escape HTML to prevent XSS attacks ──
+  function escapeHtml(text) {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+</script>
+
+</body>
+</html>
