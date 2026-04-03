@@ -200,7 +200,35 @@ async function isSubmissionAllowed(registrationNumber) {
       : `Not your day. Your room (${roomNumber}) is scheduled on another day`
   };
 }
+// ============================================================
+// CHAT FUNCTIONS
+// ============================================================
 
+/**
+ * sendMessage() — Sends a message to the universal lost & found chat
+ */
+async function sendMessage(text, userEmail) {
+  await addDoc(collection(db, "chat"), {
+    text: text,
+    userEmail: userEmail,
+    timestamp: serverTimestamp()
+  });
+}
+
+/**
+ * listenToChat() — Real-time listener for chat messages
+ * Returns unsubscribe function
+ */
+function listenToChat(callback) {
+  const q = query(
+    collection(db, "chat"),
+    orderBy("timestamp", "asc")
+  );
+  return onSnapshot(q, (snapshot) => {
+    const messages = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    callback(messages);
+  });
+}
 // Export everything for use in other files
 export {
   auth,
@@ -217,7 +245,9 @@ export {
   isSubmissionAllowed,
   onAuthStateChanged,
   addStudentRoom,
-  getRoomNumber
+  getRoomNumber,
+  senMessage,
+  listenToChat
 };
 
 // Map student to room
